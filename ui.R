@@ -21,7 +21,7 @@ shinyUI(bootstrapPage(
                 div(style="background: white"),
                 sliderInput("year", "Year",
                             min = 1974, 
-                            max = 2016,
+                            max = 2018,
                             value = 1974, 
                             step = 1,
                             sep = ""
