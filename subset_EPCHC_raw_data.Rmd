@@ -1,7 +1,7 @@
 ---
 title: "Subset_EPCHC_Raw_Data"
-author: "Ed Sherwood <esherwood@epchc.org>"
-date: "August 11, 2017"
+author: "Ed Sherwood <esherwood@tbep.org>"
+date: "February 4, 2019"
 output: html_document
 ---
 
@@ -9,65 +9,121 @@ output: html_document
 library(readr)
 library(tidyverse)
 library(lubridate)
+library(leaflet)
+require(readxl)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## R Markdown
 
 ```{r}
-# raw
-wqdat_raw <- read_csv("../data-raw/epchc_clean_data_07162017.csv", 
-    col_types = cols(Cond_Bottom_umho_cm = col_double(), 
-        Cond_Mid_umho_cm = col_double(), 
-        Cond_Top_umho_cm = col_double(), 
-        DIN = col_double(), DIN_DIP_RATIO = col_double(), 
-        DO_Bottom_mg_L = col_double(), DO_Sat_Bottom__ = col_double(), 
-        DO_Sat_Mid__ = col_double(), DO_Sat_Top__ = col_double(), 
-        DO_Top_mg_L = col_double(), DUM_DATE = col_date(format = "%d%b%Y"), 
-        N_KJEL = col_double(), N_NH3 = col_double(), 
-        Sal_Bottom_ppth = col_double(), Sal_Top_ppth = col_double(), 
-        SampleTime = col_date(format = "%d%b%Y"), 
-        TN_TOTAL = col_double(), TN_TP_RATIO = col_double(), 
-        TSS = col_double(), Temp_Water_Bottom_degC = col_double(), 
-        Temp_Water_Mid_degC = col_double(), 
-        Temp_Water_Top_degC = col_double(), 
-        chl_a = col_double(), color = col_double(), 
-        pH_Bottom = col_double(), pH_Top = col_double(), 
-        turb_ntu = col_double()))
-View(wqdat_raw)
+#EPC data column name file
+epcnames <- readLines("./data-raw/epchc_column_names.csv")
 
-wqdat <- wqdat_raw %>% 
-  rename(
-    yr = YEAR,
-    mo = month,
-    dttm = SampleTime,
-    stat = epchc_station, 
-    lat = Latitude, 
-    lon = Longitude,
-    sallo = Sal_Bottom_ppth, 
-    salmd = Sal_Mid_ppth,
-    salhi = Sal_Top_ppth, 
-    dolo = DO_Bottom_mg_L,
-    domd = DO_Mid_mg_L, 
-    dohi = DO_Top_mg_L,
-    chla = chl_a
-  ) %>% 
-  select(stat, yr, mo, dttm, lat, lon, sallo, salmd, salhi, dolo, domd, dohi, chla) %>% 
-  gather('var', 'val', sallo:chla) %>% 
-  mutate(val = as.numeric(val)) %>% 
-  spread('var', 'val') %>% 
-  rowwise() %>%
-  mutate(
-    sal = mean(c(sallo, salmd, salhi), na.rm = TRUE),
-    do = mean(c(dolo, domd, dohi), na.rm = TRUE)
-  )
+#EPC sites within Tampa Bay used for the Annual TBEP WQ Assessment
+epcsites <- c(6, 7, 8, 44, 52, 55, 70, 71, 73, 80, 36, 38, 40, 41, 46, 47, 50, 51, 60, 63, 64, 65, 66, 67, 68, 9,               11, 81, 84, 13, 14, 32, 33, 16, 19, 28, 82, 23, 24, 25, 90, 91, 92, 93, 95)
+#Station Lists by Bay Segment
+otb_stations <- c(36, 38, 40, 41, 46, 47, 50, 51, 60, 63, 64, 65, 66, 67, 68)
+hb_stations <- c(6, 7, 8, 44, 52, 55, 70, 71, 73, 80)
+mtb_stations <- c(9, 11, 81, 84, 13, 14, 32, 33, 16, 19, 28, 82)
+ltb_stations <- c(23, 24, 25, 90, 91, 92, 93, 95)
+#Short Bay Segment Names
+bay_segments = c("OTB", "HB", "MTB", "LTB")
 
-yr_mean <- wqdat %>%
-            select(stat, yr, chla) %>%
+
+epcdata <- read_xlsx("./data-raw/epchc.xlsx", 
+                     sheet="RWMDataSpreadsheet", 
+                     col_types = c("numeric", "numeric", "text", "text", "text", "text", 
+                                   "numeric", "numeric", "text", "numeric", "numeric", 
+                                   "text", "date", "text", "numeric", "text", "text", 
+                                   "numeric", "numeric", "numeric", "numeric", "text", 
+                                   "text", "text", "numeric", "text", "numeric", "text", 
+                                   "numeric", "text", "numeric", "text", "numeric", 
+                                   "text", "numeric", "text", "numeric", "text", 
+                                   "numeric", "text", "numeric", "text", "numeric", 
+                                   "text", "numeric", "text", "numeric", "text", 
+                                   "numeric", "text", "numeric", "text", "numeric", 
+                                   "text", "numeric", "text", "numeric", "text", 
+                                   "numeric", "text", "numeric", "text", "numeric", 
+                                   "text", "numeric", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text", 
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text", "text", "text", "text",
+                                   "text", "text", "text"),
+                     col_names = epcnames, 
+                     skip=1, na="")
+```
+
+## Run Some Crude Checks on the Data
+Filter entire EPCHC dataset and plot standard sites used in TBEP bay segment analyses.
+```{r ecphc_validate}
+#Filter entire EPCHC dataset
+wqdata <- epcdata %>%
+          select(StationNumber,
+                 Latitude,
+                 Longitude,
+                 SampleTime,
+                 Total_Depth_m,
+                 Sample_Depth_m,
+                 Secchi_Depth_m,
+                 Secchi_Q,
+                 Chlorophyll_a_uncorr_ugL,
+                 Chlorophyll_a_uncorr_Q) %>% 
+          mutate(epchc_station = as.numeric(StationNumber),
+                 sd_m = as.numeric(Secchi_Depth_m),
+                 sd_check = as.numeric((Total_Depth_m*3.2809)-(Secchi_Depth_m*3.2809)),
+                 chla = as.numeric(Chlorophyll_a_uncorr_ugL),
+                 yr = year(SampleTime),
+                 mo = month(SampleTime)) %>% 
+          filter(epchc_station %in% epcsites)
+
+#Assign NAs to VOB secchi disk depths or secchis <0.5ft from bottom -- Janicki protocols
+wqdata <- within(wqdata, sd_m[Secchi_Q == ">"] <- NA)
+wqdata <- within(wqdata, sd_m[sd_check < 0.5] <- NA)
+
+wqdata$bay_segment <- ifelse(wqdata$epchc_station %in% hb_stations, "HB",
+                             ifelse(wqdata$epchc_station %in% otb_stations, "OTB",
+                                    ifelse(wqdata$epchc_station %in% mtb_stations, "MTB",
+                                           ifelse(wqdata$epchc_station %in% ltb_stations, "LTB",NA))))
+
+
+#Display station locations
+wqsites <- wqdata %>% 
+           select(epchc_station, bay_segment, Latitude, Longitude) %>%
+           mutate(stat = epchc_station) %>% 
+           unique()
+pal <- colorFactor(c("red","blue","yellow","green"), domain= c("OTB","HB","MTB","LTB"))
+map <- leaflet(wqsites) %>% 
+              addProviderTiles(providers$CartoDB.Positron) %>% 
+              addCircleMarkers(~Longitude, ~Latitude,
+                               radius = 6,
+                               color = ~pal(bay_segment),
+                               stroke = FALSE,
+                               fillOpacity = 0.8,
+                               popup = ~as.character(paste('EPC Station:', epchc_station)), 
+                               group = ~bay_segment) %>% 
+              addLayersControl(overlayGroups = ~bay_segment,
+                               options = layersControlOptions(collapsed = FALSE))
+map
+yr_mean <- wqdata %>%
+            select(epchc_station, yr, chla) %>%
+            rename(stat = epchc_station) %>% 
             drop_na() %>% 
             group_by(stat, yr) %>% 
             summarise(chla_mean = mean(chla))
-yr_mean <- full_join(yr_mean,wqstat,"stat")
+yr_mean <- full_join(yr_mean,wqsites,"stat")
 write.csv(yr_mean,file="yr_mean.csv")
 
 ```
