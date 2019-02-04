@@ -123,7 +123,10 @@ yr_mean <- wqdata %>%
             drop_na() %>% 
             group_by(stat, yr) %>% 
             summarise(chla_mean = mean(chla))
-yr_mean <- full_join(yr_mean,wqsites,"stat")
+yr_mean <- full_join(yr_mean,wqsites,"stat") %>% 
+            rename(lon = Longitude,
+                   lat = Latitude) %>% 
+            select(stat, yr, lon, lat, chla_mean)
 write.csv(yr_mean,file="yr_mean.csv")
 
 ```
