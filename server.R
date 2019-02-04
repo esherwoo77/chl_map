@@ -31,7 +31,7 @@ shinyServer(function(input, output, session) {
     clearMarkers() %>%
   
     addCircleMarkers(~lon, ~lat, 
-                       popup = ~as.character(paste('WQ ',stat, ' = ', chla_mean, ' ug/L')),
+                       popup = ~as.character(paste('WQ ',stat, ' = ', round(chla_mean, digits = 2), ' ug/L')),
                        radius = ~chla_mean,
                        color = ~qpal(chla_mean),
                        stroke = FALSE,
